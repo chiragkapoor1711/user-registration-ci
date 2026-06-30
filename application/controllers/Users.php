@@ -18,6 +18,7 @@ class Users extends CI_Controller
 
         $this->load->database();
         $this->load->model('User_model');
+        $this->load->model('Notification_model');
     }
 
     public function index()
@@ -246,36 +247,38 @@ class Users extends CI_Controller
 
         $this->load->view('skills', $data);
     }
-    public function update($id)
-    {
-        $data = array(
-            'name' => $this->input->post('name'),
-            'email' => $this->input->post('email'),
-            'country_code' => $this->input->post('country_code'),
-            'mobile' => $this->input->post('mobile'),
-            'gender' => $this->input->post('gender'),
-            'address' => $this->input->post('address')
-        );
+    // public function update($id)
+    // {
+    //     $data = array(
+    //         'name' => $this->input->post('name'),
+    //         'email' => $this->input->post('email'),
+    //         'country_code' => $this->input->post('country_code'),
+    //         'mobile' => $this->input->post('mobile'),
+    //         'gender' => $this->input->post('gender'),
+    //         'address' => $this->input->post('address')
+    //     );
 
-        $this->User_model->update_user($id, $data);
+    //     $this->User_model->update_user($id, $data);
 
-        $education_data = array(
-            'qualification' => $this->input->post('qualification'),
-            'college' => $this->input->post('college'),
-            'passing_year' => $this->input->post('passing_year')
-        );
+    //     $this->Notification_model->add($id, 'profile_update', $data['name'] . ' updated their profile.');
 
-        $this->User_model->update_education($id, $education_data);
+    //     $education_data = array(
+    //         'qualification' => $this->input->post('qualification'),
+    //         'college' => $this->input->post('college'),
+    //         'passing_year' => $this->input->post('passing_year')
+    //     );
 
-        $skill_data = array(
-            'skill_name' => $this->input->post('skill_name'),
-            'experience' => $this->input->post('experience')
-        );
+    //     $this->User_model->update_education($id, $education_data);
 
-        $this->User_model->update_skill($id, $skill_data);
+    //     $skill_data = array(
+    //         'skill_name' => $this->input->post('skill_name'),
+    //         'experience' => $this->input->post('experience')
+    //     );
 
-        redirect('Users/users_list');
-    }
+    //     $this->User_model->update_skill($id, $skill_data);
+
+    //     redirect('Users/users_list');
+    // }
 
     public function education()
     {
@@ -330,8 +333,10 @@ class Users extends CI_Controller
 
         $user_id = $this->session->userdata('reg_user_id');
 
+        $old_education = $this->User_model->get_education($user_id);
+
         $data = [
-            'qualification_id' => $qualification_id,
+            'qualification_id' => $this->input->post('qualification_id'),
             'degree_id' => $this->input->post('degree_id'),
             'stream_id' => $this->input->post('stream_id'),
             'board' => $this->input->post('board'),
@@ -343,6 +348,29 @@ class Users extends CI_Controller
         ];
 
         $this->User_model->save_education($user_id, $data);
+
+        // Compare karo — kuch actually badla hai kya?
+        // $is_edit_mode = $this->session->userdata('edit_user_id');
+
+        // if ($is_edit_mode) {
+        //     $changed = false;
+
+        //     if (!$old_education) {
+        //         $changed = true; // pehli baar education add ho rahi hai
+        //     } else {
+        //         foreach ($data as $key => $value) {
+        //             if ($old_education->$key != $value) {
+        //                 $changed = true;
+        //                 break;
+        //             }
+        //         }
+        //     }
+
+        //     if ($changed) {
+        //         $user = $this->User_model->get_user($user_id);
+        //         $this->Notification_model->add($user_id, 'profile_update', $user->name . ' updated their education details.');
+        //     }
+        // }
 
         redirect('Users/skills');
     }
@@ -486,75 +514,82 @@ class Users extends CI_Controller
 
 
     public function save_skills_form()
-    {
-        $this->load->library('form_validation');
+{
+    $this->load->library('form_validation');
 
-        $this->form_validation->set_rules('preferred_locations[]', 'Preferred Locations', 'required');
-        $this->form_validation->set_rules('skills[]', 'Skills', 'required');
-        $this->form_validation->set_rules('employment_type[]', 'Employment Type', 'required');
-        $this->form_validation->set_rules('language_name[]', 'Language Name', 'required');
-        $this->form_validation->set_rules('proficiency_id[]', 'Proficiency', 'required');
+    $this->form_validation->set_rules('preferred_locations[]', 'Preferred Locations', 'required');
+    $this->form_validation->set_rules('skills[]', 'Skills', 'required');
+    $this->form_validation->set_rules('employment_type[]', 'Employment Type', 'required');
+    $this->form_validation->set_rules('language_name[]', 'Language Name', 'required');
+    $this->form_validation->set_rules('proficiency_id[]', 'Proficiency', 'required');
 
-        if ($this->form_validation->run() == FALSE) {
-            $this->skills();
-            return;
-        }
+    if ($this->form_validation->run() == FALSE) {
+        $this->skills();
+        return;
+    }
 
-        $user_id = $this->session->userdata('reg_user_id');
+    $user_id = $this->session->userdata('reg_user_id');
 
-        $this->User_model->save_user_locations($user_id, $this->input->post('preferred_locations'));
-        $this->User_model->save_user_skills($user_id, $this->input->post('skills'));
-        $this->User_model->save_user_employment_type($user_id, $this->input->post('employment_type'));
+    $this->User_model->save_user_locations($user_id, $this->input->post('preferred_locations'));
+    $this->User_model->save_user_skills($user_id, $this->input->post('skills'));
+    $this->User_model->save_user_employment_type($user_id, $this->input->post('employment_type'));
 
-        $this->User_model->delete_languages($user_id);
-        $language_names = $this->input->post('language_name');
-        $proficiency_ids = $this->input->post('proficiency_id');
+    $this->User_model->delete_languages($user_id);
+    $language_names = $this->input->post('language_name');
+    $proficiency_ids = $this->input->post('proficiency_id');
 
-        foreach ($language_names as $key => $lang_name) {
-            if (!empty($lang_name) && !empty($proficiency_ids[$key])) {
-                $this->User_model->save_language($user_id, $lang_name, $proficiency_ids[$key]);
-            }
-        }
-
-        $existing_resume = $this->User_model->get_resume($user_id);
-        $resume_filename = !empty($existing_resume->resume) ? $existing_resume->resume : '';
-
-        if (!empty($_FILES['resume']['name'])) {
-
-            $config['upload_path'] = './uploads/resume/';
-            $config['allowed_types'] = 'pdf|doc|docx';
-            $config['max_size'] = 5120;
-
-            $this->load->library('upload', $config);
-
-            if ($this->upload->do_upload('resume')) {
-                $uploadData = $this->upload->data();
-                $resume_filename = $uploadData['file_name'];
-            } else {
-                $this->session->set_flashdata('error', $this->upload->display_errors());
-                redirect('Users/skills');
-                return;
-            }
-        }
-
-        if (empty($resume_filename)) {
-            $this->session->set_flashdata('error', 'Resume upload is required.');
-            redirect('Users/skills');
-            return;
-        }
-
-        $this->User_model->save_resume($user_id, $resume_filename);
-
-        $this->session->unset_userdata('edit_user_id');
-
-        if ($this->session->userdata('role') == 'user') {
-            redirect('Users/my_profile');
-        } else {
-            $this->session->unset_userdata('reg_user_id');
-            redirect('Users/users_list');
+    foreach ($language_names as $key => $lang_name) {
+        if (!empty($lang_name) && !empty($proficiency_ids[$key])) {
+            $this->User_model->save_language($user_id, $lang_name, $proficiency_ids[$key]);
         }
     }
 
+    $existing_resume = $this->User_model->get_resume($user_id);
+    $resume_filename = !empty($existing_resume->resume) ? $existing_resume->resume : '';
+
+    if (!empty($_FILES['resume']['name'])) {
+
+        $config['upload_path'] = './uploads/resume/';
+        $config['allowed_types'] = 'pdf|doc|docx';
+        $config['max_size'] = 5120;
+
+        $this->load->library('upload', $config);
+
+        if ($this->upload->do_upload('resume')) {
+            $uploadData = $this->upload->data();
+            $resume_filename = $uploadData['file_name'];
+        } else {
+            $this->session->set_flashdata('error', $this->upload->display_errors());
+            redirect('Users/skills');
+            return;
+        }
+    }
+
+    if (empty($resume_filename)) {
+        $this->session->set_flashdata('error', 'Resume upload is required.');
+        redirect('Users/skills');
+        return;
+    }
+
+    $this->User_model->save_resume($user_id, $resume_filename);
+
+    // ===== SIRF NAYE REGISTRATION PAR NOTIFICATION =====
+    $is_edit_mode = $this->session->userdata('edit_user_id');
+
+    if (!$is_edit_mode) {
+        $user = $this->User_model->get_user($user_id);
+        $this->Notification_model->add($user_id, 'new_registration', $user->name . ' completed registration.');
+    }
+
+    $this->session->unset_userdata('edit_user_id');
+
+    if ($this->session->userdata('role') == 'user') {
+        redirect('Users/my_profile');
+    } else {
+        $this->session->unset_userdata('reg_user_id');
+        redirect('Users/users_list');
+    }
+}
 
     public function verify($id)
     {
@@ -624,5 +659,19 @@ class Users extends CI_Controller
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $writer->save('php://output');
         exit;
+    }
+
+    public function get_notifications()
+    {
+        $data['notifications'] = $this->Notification_model->get_recent(10);
+        $data['unread_count'] = $this->Notification_model->count_unread();
+
+        echo json_encode($data);
+    }
+
+    public function mark_notifications_read()
+    {
+        $this->Notification_model->mark_all_read();
+        echo json_encode(['success' => true]);
     }
 }

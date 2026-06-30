@@ -158,6 +158,22 @@
                     <i class="bi bi-box-arrow-right me-1"></i> Logout
                 </a>
 
+                <div class="dropdown">
+                    <a href="#" class="btn btn-light position-relative" id="notificationBell" data-bs-toggle="dropdown">
+                        <i class="bi bi-bell-fill"></i>
+                        <span id="notifBadge"
+                            class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill"
+                            style="display:none;">
+                            0
+                        </span>
+                    </a>
+
+                    <div class="dropdown-menu dropdown-menu-end p-2"
+                        style="width: 320px; max-height: 400px; overflow-y: auto;" id="notifDropdown">
+                        <p class="text-muted text-center mb-0">Loading...</p>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -194,6 +210,7 @@
 
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         $(document).ready(function () {
 
@@ -226,6 +243,66 @@
                 var value = $(this).val().toLowerCase();
                 $('#userTableContainer tbody tr').filter(function () {
                     $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+                });
+            });
+
+        });
+
+
+        $(document).ready(function () {
+
+            function loadNotifications() {
+                $.ajax({
+                    url: "<?= site_url('Users/get_notifications'); ?>",
+                    type: "GET",
+                    dataType: "json",
+                    success: function (response) {
+
+                        // Badge update
+                        if (response.unread_count > 0) {
+                            $('#notifBadge').text(response.unread_count).show();
+                        } else {
+                            $('#notifBadge').hide();
+                        }
+
+                        // Dropdown content build karo
+                        var html = '';
+                        if (response.notifications.length === 0) {
+                            html = '<p class="text-muted text-center mb-0">No notifications</p>';
+                        } else {
+                            $.each(response.notifications, function (i, notif) {
+                                var icon = notif.type === 'new_registration'
+                                    ? '<i class="bi bi-person-plus-fill text-success"></i>'
+                                    : '<i class="bi bi-pencil-fill text-warning"></i>';
+
+                                html += `
+                            <div class="dropdown-item small border-bottom py-2">
+                                ${icon} ${notif.message}
+                                <div class="text-muted" style="font-size: 0.75rem;">${notif.created_at}</div>
+                            </div>
+                        `;
+                            });
+                        }
+
+                        $('#notifDropdown').html(html);
+                    }
+                });
+            }
+
+            // Page load par turant fetch karo
+            loadNotifications();
+
+            // Har 15 second me dobara check karo (polling)
+            setInterval(loadNotifications, 15000);
+
+            // Bell click hote hi sab "read" mark kar do
+            $('#notificationBell').on('click', function () {
+                $.ajax({
+                    url: "<?= site_url('Users/mark_notifications_read'); ?>",
+                    type: "POST",
+                    success: function () {
+                        $('#notifBadge').hide();
+                    }
                 });
             });
 
